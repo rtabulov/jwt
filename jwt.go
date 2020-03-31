@@ -14,19 +14,23 @@ var (
 	// ErrTokenExpired token expired
 	ErrTokenExpired = errors.New("Token expired")
 
-	// ErrTokenFormInvalid token expired
+	// ErrTokenFormInvalid token form invalid
 	ErrTokenFormInvalid = errors.New("Token form invalid")
 
-	// ErrTokenFormatNotSupported token expired
+	// ErrTokenFormatNotSupported token format not supported
+	// This package only supports HS256 encoding
 	ErrTokenFormatNotSupported = errors.New("Token format not supported")
 
-	// ErrSignatureInvalid token expired
+	// ErrSignatureInvalid token hash does not match body
+	// Signature does not match the payload
 	ErrSignatureInvalid = errors.New("Token hash does not match body")
 
-	// ErrClaimsInvalid token expired
+	// ErrClaimsInvalid token claims invalid
+	// Conflicts inside claims, such as iat > exp
 	ErrClaimsInvalid = errors.New("Token claims invalid")
 
-	// ErrUnmarshalTargetNotPointer token expired
+	// ErrUnmarshalTargetNotPointer target must be a pointer
+	// Unmarshal must be used with a pointer
 	ErrUnmarshalTargetNotPointer = errors.New("Unmarshal target must be a pointer")
 )
 
@@ -36,6 +40,7 @@ type Header struct {
 	Typ string `json:"typ"`
 }
 
+// defaultHeader default and the only supported header type
 func defaultHeader() Header {
 	return Header{
 		Alg: "HS256",
@@ -85,11 +90,6 @@ func Unmarshal(token string, secret string, target interface{}) error {
 	return json.Unmarshal([]byte(bodyDecoded), target)
 }
 
-// hashMatches validates a hash againt a value
-func hashMatches(hash, payloadEncoded, secret string) bool {
-	return hash == generateHash(payloadEncoded, secret)
-}
-
 // IsValid checks token for validity, expiration time
 func IsValid(token, secret string) error {
 	parts := strings.Split(token, ".")
@@ -101,18 +101,24 @@ func IsValid(token, secret string) error {
 		return err
 	}
 
-	if err := checkClaims(parts[1]); err != nil {
+	if err := checkPayload(parts[1]); err != nil {
 		return err
 	}
 
-	if !hashMatches(parts[2], parts[0]+"."+parts[1], secret) {
+	body := parts[0] + "." + parts[1]
+	if !checkSignature(parts[2], body, secret) {
 		return ErrSignatureInvalid
 	}
 
 	return nil
 }
 
-func checkClaims(c string) error {
+// checkSignature validates a hash againt a value
+func checkSignature(hash, body, secret string) bool {
+	return hash == generateHash(body, secret)
+}
+
+func checkPayload(c string) error {
 	claimsString, err := base64Decode(c)
 	if err != nil {
 		return err
@@ -124,11 +130,7 @@ func checkClaims(c string) error {
 		return err
 	}
 
-	// if claims != defaultHeader() {
-	// 	return ErrTokenFormatNotSupported
-	// }
-	now := time.Now().Unix()
-	if now > claims.ExpiresAt {
+	if time.Now().Unix() > claims.ExpiresAt {
 		return ErrTokenExpired
 	}
 
