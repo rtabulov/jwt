@@ -1,24 +1,24 @@
 package jwt
 
 import (
-	"fmt"
 	"log"
 	"testing"
 	"time"
 )
 
+type User struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
+	DefaultClaims
+}
+
 func TestBase64Encode(t *testing.T) {
-	type User struct {
-		ID       string `json:"id"`
-		Username string `json:"username"`
-		Claims
-	}
 
 	secret := "secret"
 	me := User{
-		Username: "meeee",
-		ID:       "shhh, it's a secret",
-		Claims:   ClaimsWithExp(time.Minute * -1),
+		Username:      "meeee",
+		ID:            "shhh, it's a secret",
+		DefaultClaims: DefaultClaimsWithExp(time.Minute),
 	}
 
 	token, err := Generate(me, secret)
@@ -32,5 +32,8 @@ func TestBase64Encode(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("%+v\n", testUser)
+	if testUser != me {
+		t.Errorf("Expected %+v to equal %+v", me, testUser)
+	}
+	// time.uni
 }

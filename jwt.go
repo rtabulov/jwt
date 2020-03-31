@@ -3,7 +3,6 @@ package jwt
 import (
 	"encoding/json"
 	"errors"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -14,14 +13,19 @@ const DefaultExpirationTime = time.Minute * 5
 var (
 	// ErrTokenExpired token expired
 	ErrTokenExpired = errors.New("Token expired")
+
 	// ErrTokenFormInvalid token expired
 	ErrTokenFormInvalid = errors.New("Token form invalid")
+
 	// ErrTokenFormatNotSupported token expired
 	ErrTokenFormatNotSupported = errors.New("Token format not supported")
-	// ErrTokenHashInvalid token expired
-	ErrTokenHashInvalid = errors.New("Token hash does not match body")
+
+	// ErrSignatureInvalid token expired
+	ErrSignatureInvalid = errors.New("Token hash does not match body")
+
 	// ErrClaimsInvalid token expired
 	ErrClaimsInvalid = errors.New("Token claims invalid")
+
 	// ErrUnmarshalTargetNotPointer token expired
 	ErrUnmarshalTargetNotPointer = errors.New("Unmarshal target must be a pointer")
 )
@@ -62,17 +66,13 @@ func Generate(payload interface{}, secret string) (string, error) {
 	return signatureValue + "." + generateHash(signatureValue, secret), nil
 }
 
-func isPointer(x interface{}) bool {
-	return reflect.ValueOf(x).Kind() == reflect.Ptr
-}
-
 // Unmarshal unmarshals into target, returns error if jwt is invalid
 func Unmarshal(token string, secret string, target interface{}) error {
 	if !isPointer(target) {
 		return ErrUnmarshalTargetNotPointer
 	}
 
-	if err := isValid(token, secret); err != nil {
+	if err := IsValid(token, secret); err != nil {
 		return err
 	}
 
@@ -90,8 +90,8 @@ func hashMatches(hash, payloadEncoded, secret string) bool {
 	return hash == generateHash(payloadEncoded, secret)
 }
 
-// isValid checks token for validity, expiration time
-func isValid(token, secret string) error {
+// IsValid checks token for validity, expiration time
+func IsValid(token, secret string) error {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
 		return ErrTokenFormInvalid
@@ -106,7 +106,7 @@ func isValid(token, secret string) error {
 	}
 
 	if !hashMatches(parts[2], parts[0]+"."+parts[1], secret) {
-		return ErrTokenHashInvalid
+		return ErrSignatureInvalid
 	}
 
 	return nil
@@ -118,7 +118,7 @@ func checkClaims(c string) error {
 		return err
 	}
 
-	claims := Claims{}
+	claims := DefaultClaims{}
 	err = json.Unmarshal([]byte(claimsString), &claims)
 	if err != nil {
 		return err
