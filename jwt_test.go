@@ -35,5 +35,4 @@ func TestBase64Encode(t *testing.T) {
 	if testUser != me {
 		t.Errorf("Expected %+v to equal %+v", me, testUser)
 	}
-	// time.uni
 }
